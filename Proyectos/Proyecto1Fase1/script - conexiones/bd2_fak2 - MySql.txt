@@ -1,0 +1,56 @@
+using System;
+using System.Data;
+using Microsoft.SqlServer.Dts.Runtime;
+using System.Windows.Forms;
+using System.IO;
+using MySql.Data.MySqlClient;
+
+
+
+            try
+            {
+                string Delimitador = Dts.Variables["User::delimitador"].Value.ToString();
+                string Extension = Dts.Variables["User::extension_comp"].Value.ToString();
+                string FolderOrigen = Dts.Variables["User::folderEntrada2"].Value.ToString();
+                string tabladestino = Dts.Variables["User::tablaDestino_bd2_fake2"].Value.ToString();
+
+                string[] fileEntries = Directory.GetFiles(FolderOrigen, "*" + Extension); //Arreglo con todos los archivos .txt que se encuentran en la carpeta origen
+
+                foreach (string fileName in fileEntries)
+                {
+                    string conexion = "datasource=127.0.0.1;port=3306;username=root;password=krlos;database=proyectof1_semi2";
+                    MySqlConnection databaseConnection = new MySqlConnection(conexion);
+
+                    int contador = 0;
+                    string linea;
+
+                    System.IO.StreamReader SourceFile = new System.IO.StreamReader(fileName);
+
+                    while ((linea = SourceFile.ReadLine()) != null)
+                    {
+                        if (contador > 0) //Con esto nos saltanos la fila de encabezados
+                        {
+                            string[] campos = linea.Split(Delimitador.ToCharArray()[0]);
+                            string query = "INSERT INTO " + tabladestino+
+                                "(Fecha, CodProveedor, NombreProveedor, DireccionProveedor, NumeroProveedor, WebProveedor, CodProducto, NombreProducto, MarcaProducto, Categoria, CodSucursal, NombreSucursal, DireccionSucursal, Region, Departamento, Unidades, CostoU) VALUES('"
+                                + campos[0] + "','" + campos[1] + "','" + campos[2] + "','" + campos[3] + "','" + campos[4] + "','" + campos[5] + "','" + campos[6] + "','" + campos[7] + "','" + campos[8] + "','" + campos[9] + "','" + campos[10] + "','" + campos[11] + "','" + campos[12] + "','" + campos[13] + "','" + campos[14] + "','" + campos[15] + "','" + campos[16]
+                                + "')";
+                            MySqlCommand myCommand = new MySqlCommand(query, databaseConnection);
+                            databaseConnection.Open();
+                            myCommand.ExecuteReader();
+                            databaseConnection.Close();
+                        }
+                        contador++;
+                    }
+                    SourceFile.Close();
+                    Dts.TaskResult = (int)ScriptResults.Success;
+                }
+            }
+            catch (Exception ex)
+            {
+                using (StreamWriter sw = File.CreateText(Dts.Variables["User::folderError"].Value.ToString() + "\\" + "ErrorLog_BD2_fake2.log"))
+                {
+                    sw.WriteLine(ex.ToString());
+                    Dts.TaskResult = (int)ScriptResults.Failure;
+                }
+            }
